@@ -63,33 +63,30 @@ class Tank extends Mesh {
 	constructor(props) {
 		super(props);
 		this.control = props.control;
-		this.limitRight = props.limitRight;
-		this.limitLeft = props.limitLeft;
-		this.limitUp = props.limitUp;
-		this.limitDown = props.limitDown;
+		this.speed = props.speed;
+		this.minX = props.limitLeft + props.width/2;
+		this.maxX = props.limitRight - props.width/2;
+		this.minY = props.limitUp + props.height/2;
+		this.maxY = props.limitDown - props.height/2;
 	}
 	
 	checkBorder(){
-		const minX = this.limitLeft + this.width/2;
-		const maxX = this.limitRight - this.width/2;
-		const minY = this.limitUp + this.height/2;
-		const maxY = this.limitDown - this.height/2
-		if (this.x < minX){
-			this.x = minX;
+		if (this.x < this.minX){
+			this.x = this.minX;
 		}
-		else if (this.x > maxX){
-			this.x = maxX;
+		else if (this.x > this.maxX){
+			this.x = this.maxX;
 		}
-		if (this.y < minY){
-			this.y = minY;
+		if (this.y < this.minY){
+			this.y = this.minY;
 		}
-		else if (this.y > maxY){
-			this.y = maxY;
+		else if (this.y > this.maxY){
+			this.y = this.maxY;
 		}
 	}
 	
 	move(timeDelta){
-		const step = timeDelta/5;
+		const step = timeDelta * this.speed;
 		if (this.control.upPressed) {
 			this.y -= step;
 		}
@@ -215,6 +212,7 @@ const tank1 = new Tank({
 	x: 100,
 	y: 100,
 	control: control_1,
+	speed: 0.1,
 	limitRight: canvas.width,
 	limitLeft: 0,
 	limitUp: 0,
@@ -229,6 +227,7 @@ const tank2 = new Tank({
 	x: 100,
 	y: 300,
 	control: control_2,
+	speed: 0.2,
 	limitRight: canvas.width,
 	limitLeft: 0,
 	limitUp: 0,
