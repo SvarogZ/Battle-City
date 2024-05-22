@@ -3,6 +3,42 @@
 //-----------------------------------------------------------------//
 //---Clases--------------------------------------------------------//
 //-----------------------------------------------------------------//
+class MainFraim {
+	static displayName = MainFraim.name;
+	constructor(props) {
+		this.width = props.width;
+		this.height = props.height;
+		this.backgroundColor = props.backgroundColor;
+		this.objects = props.objects;
+		this.pause = true;
+		this.manu = true;
+		
+		const canvas = document.getElementById('canvas');
+		canvas.width = this.width;
+		canvas.height = this.height;
+		
+		this.ctx = canvas.getContext('2d');
+	}
+	
+	drawObjects(timeElapsed, timeDelta){
+		for (let obj of this.objects) {
+			obj.update(this.ctx, this.width, this.height, timeDelta);
+		}
+	}
+	
+	drawFrame(timeElapsed, timeDelta){
+		const fps = Math.round(1000/timeDelta);
+		
+		this.ctx.fillStyle = this.backgroundColor;
+		this.ctx.fillRect(0, 0, screenWidth, screenHeight);
+		this.ctx.font = "10px Arial";
+		this.ctx.fillStyle = "#22ffff";
+		this.ctx.fillText(`fps:${fps}`, 10, 10);
+	
+		this.drawObjects(timeElapsed, timeDelta);
+	}
+}
+
 class Control {
 	static displayName = Control.name;
 	constructor(props) {
@@ -49,13 +85,16 @@ class Control {
 class Mesh {
 	static displayName = Mesh.name;
 	constructor(props) {
-		this.ctx = props.ctx;
 		this.color = props.color;
 		this.height = props.height;
 		this.width = props.width;
 		this.x = props.x;
 		this.y = props.y;
-	}	
+	}
+	
+	update(ctx, frameWidth, frameHeight, timeDelta){
+		//declaration
+	}
 }
 
 class Tank extends Mesh {
@@ -64,28 +103,29 @@ class Tank extends Mesh {
 		super(props);
 		this.control = props.control;
 		this.speed = props.speed;
-		this.minX = props.limitLeft + props.width/2;
-		this.maxX = props.limitRight - props.width/2;
-		this.minY = props.limitUp + props.height/2;
-		this.maxY = props.limitDown - props.height/2;
 	}
 	
-	checkBorder(){
-		if (this.x < this.minX){
-			this.x = this.minX;
+	checkBorder(frameWidth, frameHeight){
+		const minX = 0 + this.width / 2;
+		const maxX = frameWidth - this.width / 2;
+		const minY = 0 + this.height / 2;
+		const maxY = frameHeight - this.height / 2;
+		
+		if (this.x < minX){
+			this.x = minX;
 		}
-		else if (this.x > this.maxX){
-			this.x = this.maxX;
+		else if (this.x > maxX){
+			this.x = maxX;
 		}
-		if (this.y < this.minY){
-			this.y = this.minY;
+		if (this.y < minY){
+			this.y = minY;
 		}
-		else if (this.y > this.maxY){
-			this.y = this.maxY;
+		else if (this.y > maxY){
+			this.y = maxY;
 		}
 	}
 	
-	move(timeDelta){
+	move(frameWidth, frameHeight, timeDelta){
 		const step = timeDelta * this.speed;
 		if (this.control.upPressed) {
 			this.y -= step;
@@ -99,17 +139,18 @@ class Tank extends Mesh {
 		if (this.control.leftPressed) {
 			this.x -= step;
 		}
-		this.checkBorder()
+		
+		this.checkBorder(frameWidth, frameHeight)
 	}
 
-	draw(){
-		this.ctx.fillStyle = this.color;
-		this.ctx.fillRect(this.x-this.width/2, this.y-this.height/2, this.width, this.height);
+	draw(ctx){
+		ctx.fillStyle = this.color;
+		ctx.fillRect(this.x-this.width/2, this.y-this.height/2, this.width, this.height);
 	}
 	
-	update(timeDelta){
-		this.move(timeDelta);
-		this.draw();
+	update(ctx, frameWidth, frameHeight, timeDelta){
+		this.move(frameWidth, frameHeight, timeDelta);
+		this.draw(ctx);
 	}
 }
 
@@ -142,18 +183,6 @@ function drawObjects(timeDelta,dataToShow){
 		obj.update(timeDelta);
 	}
 }
-
-
-//-----------------------------------------------------------------//
-//---Create canvas-------------------------------------------------//
-//-----------------------------------------------------------------//
-const screenWidth  = (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth)*0.95;
-const screenHeight = (window.innerHeight|| document.documentElement.clientHeight|| document.body.clientHeight)*0.95;
-
-const canvas = document.getElementById('canvas');
-canvas.width = screenWidth;
-canvas.height = screenHeight;
-const ctx = canvas.getContext('2d');
 
 
 //-----------------------------------------------------------------//
@@ -205,7 +234,6 @@ function upKey(e) {
 //---Create meshes-------------------------------------------------//
 //-----------------------------------------------------------------//
 const tank1 = new Tank({
-	ctx: ctx,
 	color: "#ff22ff",
 	height: 100,
 	width: 100,
@@ -213,14 +241,9 @@ const tank1 = new Tank({
 	y: 100,
 	control: control_1,
 	speed: 0.1,
-	limitRight: canvas.width,
-	limitLeft: 0,
-	limitUp: 0,
-	limitDown: canvas.height	
 });
 
 const tank2 = new Tank({
-	ctx: ctx,
 	color: "#ffff22",
 	height: 100,
 	width: 100,
@@ -228,30 +251,28 @@ const tank2 = new Tank({
 	y: 300,
 	control: control_2,
 	speed: 0.2,
-	limitRight: canvas.width,
-	limitLeft: 0,
-	limitUp: 0,
-	limitDown: canvas.height
 });
 
 const dataToShow = [tank1,tank2];
 
 
 //-----------------------------------------------------------------//
+//---Create frame-------------------------------------------------//
+//-----------------------------------------------------------------//
+const screenWidth  = (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth)*0.95;
+const screenHeight = (window.innerHeight|| document.documentElement.clientHeight|| document.body.clientHeight)*0.95;
+
+const frame = new MainFraim ({
+	width: screenWidth,
+	height: screenHeight,
+	backgroundColor: "#000000",
+	objects: dataToShow,
+});
+
+
+//-----------------------------------------------------------------//
 //---Draw the frame------------------------------------------------//
 //-----------------------------------------------------------------//
-function drawFrame(ctx, timeElapsed, timeDelta){
-	const fps = Math.round(1000/timeDelta);
-		
-	ctx.fillStyle = "#000000";
-	ctx.fillRect(0, 0, screenWidth, screenHeight);
-	ctx.font = "10px Arial";
-	ctx.fillStyle = "#22ffff";
-	ctx.fillText(`fps:${fps}`, 10, 10);
-	
-	drawObjects(timeDelta,dataToShow);
-}
-
 let start, previousTimeStamp;
 
 function step(timestamp) {
@@ -262,7 +283,8 @@ function step(timestamp) {
 	const timeElapsed = timestamp - start;
 	const timeDelta = timestamp - previousTimeStamp;
 		
-	drawFrame(ctx, timeElapsed, timeDelta)
+	
+	frame.drawFrame(timeElapsed, timeDelta)
 
 	previousTimeStamp = timestamp
 	window.requestAnimationFrame(step);
