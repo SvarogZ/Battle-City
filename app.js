@@ -3,8 +3,8 @@
 //-----------------------------------------------------------------//
 //---Clases--------------------------------------------------------//
 //-----------------------------------------------------------------//
-class MainFraim {
-	static displayName = MainFraim.name;
+class MainFrame {
+	static displayName = MainFrame.name;
 	constructor(props) {
 		this.width = props.width;
 		this.height = props.height;
@@ -344,7 +344,7 @@ const dataToShow = [block1,tank1,tank2];
 const screenWidth  = (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth)*0.95;
 const screenHeight = (window.innerHeight|| document.documentElement.clientHeight|| document.body.clientHeight)*0.95;
 
-const frame = new MainFraim ({
+const frame = new MainFrame ({
 	width: screenWidth,
 	height: screenHeight,
 	backgroundColor: "#000000",
