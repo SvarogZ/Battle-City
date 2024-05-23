@@ -22,7 +22,7 @@ class MainFraim {
 	
 	drawObjects(timeElapsed, timeDelta){
 		for (let obj of this.objects) {
-			obj.update(this.ctx, this.width, this.height, timeDelta);
+			obj.update(this.ctx, this.width, this.height, timeDelta, this.objects);
 		}
 	}
 	
@@ -85,6 +85,7 @@ class Control {
 class Mesh {
 	static displayName = Mesh.name;
 	constructor(props) {
+		this.id = props.id;
 		this.color = props.color;
 		this.height = props.height;
 		this.width = props.width;
@@ -92,55 +93,28 @@ class Mesh {
 		this.y = props.y;
 	}
 	
-	update(ctx, frameWidth, frameHeight, timeDelta){
-		//declaration
+	getId(){
+		return this.id;
+	}
+	
+	getBondary(){
+		return {
+			minX: this.x - this.width / 2,
+			maxX: this.x + this.width / 2,
+			minY: this.y - this.height / 2,
+			maxY: this.y + this.height / 2,
+		}
+	}
+	
+	update(){
+		//decalration
 	}
 }
 
-class Tank extends Mesh {
-	static displayName = Tank.name;
+class StaticMesh extends Mesh {
+	static displayName = StaticMesh.name;
 	constructor(props) {
 		super(props);
-		this.control = props.control;
-		this.speed = props.speed;
-	}
-	
-	checkBorder(frameWidth, frameHeight){
-		const minX = 0 + this.width / 2;
-		const maxX = frameWidth - this.width / 2;
-		const minY = 0 + this.height / 2;
-		const maxY = frameHeight - this.height / 2;
-		
-		if (this.x < minX){
-			this.x = minX;
-		}
-		else if (this.x > maxX){
-			this.x = maxX;
-		}
-		if (this.y < minY){
-			this.y = minY;
-		}
-		else if (this.y > maxY){
-			this.y = maxY;
-		}
-	}
-	
-	move(frameWidth, frameHeight, timeDelta){
-		const step = timeDelta * this.speed;
-		if (this.control.upPressed) {
-			this.y -= step;
-		}
-		if (this.control.downPressed) {
-			this.y += step;
-		}
-		if (this.control.rightPressed) {
-			this.x += step;
-		}
-		if (this.control.leftPressed) {
-			this.x -= step;
-		}
-		
-		this.checkBorder(frameWidth, frameHeight)
 	}
 
 	draw(ctx){
@@ -148,9 +122,106 @@ class Tank extends Mesh {
 		ctx.fillRect(this.x-this.width/2, this.y-this.height/2, this.width, this.height);
 	}
 	
-	update(ctx, frameWidth, frameHeight, timeDelta){
-		this.move(frameWidth, frameHeight, timeDelta);
+	//overwrite
+	update(ctx){
 		this.draw(ctx);
+	}
+}
+
+class DynamicMesh extends Mesh {
+	static displayName = DynamicMesh.name;
+	constructor(props) {
+		super(props);
+		this.speed = props.speed;
+		this.moving = false;
+		this.newX = this.x;
+		this.newY = this.y;
+	}
+	
+	//overwrite
+	getBondary(){
+		return {
+			minX: this.newX - this.width / 2,
+			maxX: this.newX + this.width / 2,
+			minY: this.newY - this.height / 2,
+			maxY: this.newY + this.height / 2,
+		}
+	}
+	
+	checkOverlap(frameWidth, frameHeight, overlapObjects){
+		
+		const thisBondaries = this.getBondary();
+		
+		//check frame
+		if (thisBondaries.minX < 0 || thisBondaries.maxX > frameWidth){
+			this.newX = this.x;
+		}
+		if (thisBondaries.minY < 0 || thisBondaries.maxY > frameHeight){
+			this.newY = this.y;
+		}
+		
+		//check overlapping objects
+		for (let obj of overlapObjects) {
+			if (this.id != obj.getId()){
+				const bondaries = obj.getBondary();
+				if (thisBondaries.minX < bondaries.maxX && thisBondaries.maxX > bondaries.minX && thisBondaries.minY < bondaries.maxY && thisBondaries.maxY > bondaries.minY){
+					this.newX = this.x;
+					this.newY = this.y;
+					break;
+				}
+			}
+		}
+		
+		this.x = this.newX;
+		this.y = this.newY;
+	}
+	
+	move(timeDelta){
+		//declaration
+	}
+
+	draw(ctx){
+		ctx.fillStyle = this.color;
+		ctx.fillRect(this.x-this.width/2, this.y-this.height/2, this.width, this.height);
+	}
+	
+	//overwrite
+	update(ctx, frameWidth, frameHeight, timeDelta, overlapObjects){
+		this.move(timeDelta);
+		if (this.moving) {
+			this.checkOverlap(frameWidth, frameHeight, overlapObjects);
+			this.moving = false;
+		}
+		this.draw(ctx);
+	}
+}
+
+class ControlledMesh extends DynamicMesh {
+	static displayName = ControlledMesh.name;
+	constructor(props) {
+		super(props);
+		this.control = props.control;
+	}
+	
+	//overwrite
+	move(timeDelta){
+		const step = Math.round(timeDelta * this.speed);
+		if (this.control.upPressed) {
+			this.newY = this.y - step;
+			this.moving = true;
+		}
+		if (this.control.downPressed) {
+			this.newY = this.y + step;
+			this.moving = true;
+		}
+		if (this.control.rightPressed) {
+			this.newX = this.x + step;
+			this.moving = true;
+		}
+		if (this.control.leftPressed) {
+			this.newX = this.x - step;
+			this.moving = true;
+		}
 	}
 }
 
@@ -233,27 +304,38 @@ function upKey(e) {
 //-----------------------------------------------------------------//
 //---Create meshes-------------------------------------------------//
 //-----------------------------------------------------------------//
-const tank1 = new Tank({
+const block1 = new StaticMesh({
+	id: "block1",
+	color: "#1122ff",
+	height: 100,
+	width: 100,
+	x: 100,
+	y: 250,
+});
+
+const tank1 = new ControlledMesh({
+	id: "tank1",
 	color: "#ff22ff",
 	height: 100,
 	width: 100,
 	x: 100,
 	y: 100,
-	control: control_1,
 	speed: 0.1,
+	control: control_1,
 });
 
-const tank2 = new Tank({
+const tank2 = new ControlledMesh({
+	id: "tank2",
 	color: "#ffff22",
 	height: 100,
 	width: 100,
 	x: 100,
-	y: 300,
-	control: control_2,
+	y: 400,
 	speed: 0.2,
+	control: control_2,
 });
 
-const dataToShow = [tank1,tank2];
+const dataToShow = [block1,tank1,tank2];
 
 
 //-----------------------------------------------------------------//
@@ -284,9 +366,9 @@ function step(timestamp) {
 	const timeDelta = timestamp - previousTimeStamp;
 		
 	
-	frame.drawFrame(timeElapsed, timeDelta)
+	frame.drawFrame(timeElapsed, timeDelta);
 
-	previousTimeStamp = timestamp
+	previousTimeStamp = timestamp;
 	window.requestAnimationFrame(step);
 }
 
