@@ -31,11 +31,12 @@ class MainFrame {
 		
 		this.ctx.fillStyle = this.backgroundColor;
 		this.ctx.fillRect(0, 0, screenWidth, screenHeight);
+		
+		this.drawObjects(timeElapsed, timeDelta);
+		
 		this.ctx.font = "10px Arial";
 		this.ctx.fillStyle = "#22ffff";
 		this.ctx.fillText(`fps:${fps}`, 10, 10);
-	
-		this.drawObjects(timeElapsed, timeDelta);
 	}
 }
 
@@ -98,11 +99,13 @@ class Mesh {
 	}
 	
 	getBondary(){
+		const xOffset = this.width/2;
+		const yOffset = this.height/2;
 		return {
-			minX: this.x - this.width / 2,
-			maxX: this.x + this.width / 2,
-			minY: this.y - this.height / 2,
-			maxY: this.y + this.height / 2,
+			minX: this.x - xOffset,
+			maxX: this.x + xOffset,
+			minY: this.y - yOffset,
+			maxY: this.y + yOffset,
 		}
 	}
 	
@@ -140,12 +143,18 @@ class DynamicMesh extends Mesh {
 	
 	//overwrite
 	getBondary(){
+		const xOffset = this.width/2;
+		const yOffset = this.height/2;
 		return {
-			minX: this.newX - this.width / 2,
-			maxX: this.newX + this.width / 2,
-			minY: this.newY - this.height / 2,
-			maxY: this.newY + this.height / 2,
+			minX: this.newX - xOffset,
+			maxX: this.newX + xOffset,
+			minY: this.newY - yOffset,
+			maxY: this.newY + yOffset,
 		}
+	}
+	
+	resetMove(){
+		//decalration
 	}
 	
 	checkOverlap(frameWidth, frameHeight, overlapObjects){
@@ -155,9 +164,11 @@ class DynamicMesh extends Mesh {
 		//check frame
 		if (thisBondaries.minX < 0 || thisBondaries.maxX > frameWidth){
 			this.newX = this.x;
+			this.resetMove();
 		}
 		if (thisBondaries.minY < 0 || thisBondaries.maxY > frameHeight){
 			this.newY = this.y;
+			this.resetMove();
 		}
 		
 		//check overlapping objects
@@ -165,9 +176,15 @@ class DynamicMesh extends Mesh {
 			if (this.id != obj.getId()){
 				const bondaries = obj.getBondary();
 				if (thisBondaries.minX < bondaries.maxX && thisBondaries.maxX > bondaries.minX && thisBondaries.minY < bondaries.maxY && thisBondaries.maxY > bondaries.minY){
-					this.newX = this.x;
-					this.newY = this.y;
-					break;
+					const xOffset = this.width/2;
+					const yOffset = this.height/2;
+					if (this.x-xOffset < bondaries.maxX && this.x+xOffset > bondaries.minX){
+						this.newY = this.y;
+					}
+					if (this.y-yOffset < bondaries.maxY && this.y+yOffset > bondaries.minY){
+						this.newX = this.x;
+					}
+					this.resetMove();
 				}
 			}
 		}
@@ -193,6 +210,89 @@ class DynamicMesh extends Mesh {
 			this.moving = false;
 		}
 		this.draw(ctx);
+	}
+}
+
+class AIMesh extends DynamicMesh {
+	static displayName = AIMesh.name;
+	constructor(props) {
+		super(props);
+		this.timer = 0;
+		this.maxTime = 10;
+		this.control = ({
+			up: false,
+			down: false,
+			left: false,
+			right: false,
+			fire: false,
+		});
+	}
+	
+	//overwrite
+	resetMove(){
+		this.timer = this.maxTime - 1;
+	}
+	
+	//overwrite
+	move(timeDelta){
+		this.timer += timeDelta/1000;
+		//console.log("AI timer: "+this.timer)
+		
+		if (Math.floor(this.timer)%2!=0){
+			const rendonNumber = random(0, this.maxTime - this.timer);
+			if (rendonNumber < 2){
+				this.timer = 0;
+				const rendonDirection = random(0,5);
+				if (rendonDirection ==1){
+					this.control.up=true;
+					this.control.down=false;
+					this.control.left=false;
+					this.control.right=false;
+				}
+				else if (rendonDirection ==2){
+					this.control.up=false;
+					this.control.down=true;
+					this.control.left=false;
+					this.control.right=false;
+				}
+				else if (rendonDirection ==3){
+					this.control.up=false;
+					this.control.down=false;
+					this.control.left=true;
+					this.control.right=false;
+				}
+				else if (rendonDirection ==4){
+					this.control.up=false;
+					this.control.down=false;
+					this.control.left=false;
+					this.control.right=true;
+				}
+				else {
+					this.control.up=false;
+					this.control.down=false;
+					this.control.left=false;
+					this.control.right=false;
+				}
+			}
+		}
+		
+		const step = Math.round(timeDelta * this.speed);
+		if (this.control.up) {
+			this.newY = this.y - step;
+			this.moving = true;
+		}
+		if (this.control.down) {
+			this.newY = this.y + step;
+			this.moving = true;
+		}
+		if (this.control.right) {
+			this.newX = this.x + step;
+			this.moving = true;
+		}
+		if (this.control.left) {
+			this.newX = this.x - step;
+			this.moving = true;
+		}
 	}
 }
 
@@ -304,51 +404,92 @@ function upKey(e) {
 //-----------------------------------------------------------------//
 //---Create meshes-------------------------------------------------//
 //-----------------------------------------------------------------//
-const block1 = new StaticMesh({
-	id: "block1",
-	color: "#1122ff",
-	height: 100,
-	width: 100,
-	x: 100,
-	y: 250,
-});
+const obstapleObjects = [];
+const gridSize = 40;
+
+const obsticleArray = [
+[1,1,0,0],
+[1,0,0,1],
+[1,0,1,1],
+[2,0,0,1],
+];
+
+for (const i in obsticleArray) {
+	for (const j in obsticleArray[i]) {
+		let blockName;
+		let blockColor;
+		const space = obsticleArray[i][j];
+		if (space == 0){
+			continue;
+		}
+		else if (space == 1){
+			blockName = "concrete";
+			blockColor = "#333333";
+		}
+		else if (space == 2){
+			blockName = "grass";
+			blockColor = "#007700";
+		}
+		const block = new StaticMesh({
+			id: blockName+"_"+i+":"+j,
+			color: blockColor,
+			height: gridSize,
+			width: gridSize,
+			x: gridSize/2+j*gridSize,
+			y: gridSize/2+i*gridSize,
+		});
+		obstapleObjects.push(block)
+	}
+}
 
 const tank1 = new ControlledMesh({
 	id: "tank1",
-	color: "#ff22ff",
-	height: 100,
-	width: 100,
-	x: 100,
-	y: 100,
+	color: "#119900",
+	height: gridSize*0.7,
+	width: gridSize*0.7,
+	x: 60,
+	y: 180,
 	speed: 0.1,
 	control: control_1,
 });
 
 const tank2 = new ControlledMesh({
 	id: "tank2",
-	color: "#ffff22",
-	height: 100,
-	width: 100,
-	x: 100,
-	y: 400,
+	color: "#000099",
+	height: gridSize*0.7,
+	width: gridSize*0.7,
+	x: 200,
+	y: 25,
 	speed: 0.2,
 	control: control_2,
 });
 
-const dataToShow = [block1,tank1,tank2];
+const AITank1 = new AIMesh({
+	id: "AITank1",
+	color: "#990000",
+	height: gridSize*0.7,
+	width: gridSize*0.7,
+	x: 60,
+	y: 65,
+	speed: 0.05,
+});
+
+const objectsToShow = [...obstapleObjects,tank1,tank2,AITank1];
 
 
 //-----------------------------------------------------------------//
 //---Create frame-------------------------------------------------//
 //-----------------------------------------------------------------//
-const screenWidth  = (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth)*0.95;
-const screenHeight = (window.innerHeight|| document.documentElement.clientHeight|| document.body.clientHeight)*0.95;
+//const screenWidth  = (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth)*0.95;
+//const screenHeight = (window.innerHeight|| document.documentElement.clientHeight|| document.body.clientHeight)*0.95;
+const screenWidth = 640;
+const screenHeight = 480;
 
 const frame = new MainFrame ({
 	width: screenWidth,
 	height: screenHeight,
 	backgroundColor: "#000000",
-	objects: dataToShow,
+	objects: objectsToShow,
 });
 
 
